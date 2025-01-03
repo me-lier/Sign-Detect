@@ -4,7 +4,52 @@ import numpy as np
 import os
 import mediapipe as mp
 from tensorflow.keras.models import load_model
-from utils import mediapipe_detection, landmarks_data, prob_viz
+# from utils import mediapipe_detection, landmarks_data, prob_viz
+
+def mediapipe_detection(image, model):
+    if image is not None:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # COLOR CONVERSION BGR 2 RGB
+        image.flags.writeable = False  # Image is no longer writeable
+        results = model.process(image)  # Make prediction
+        image.flags.writeable = True  # Image is now writeable
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # COLOR COVERSION RGB 2 BGR
+        return image, results
+    else:
+        return None, None
+
+def landmarks_data(results):
+    pose = np.array([[res.x, res.y] for res in
+                     results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33 * 2)
+
+    # face = np.array([[res.x, res.y, res.z] for res in
+    #                  results.face_landmarks.landmark]).flatten() if results.face_landmarks else np.zeros(468 * 3)
+
+    lh = np.array([[res.x, res.y] for res in
+                   results.left_hand_landmarks.landmark]).flatten() if results.left_hand_landmarks else np.zeros(
+        21 * 2)
+    rh = np.array([[res.x, res.y] for res in
+                   results.right_hand_landmarks.landmark]).flatten() if results.right_hand_landmarks else np.zeros(
+        21 * 2)
+
+    return np.concatenate([pose, lh, rh])
+
+def prob_viz(res, actions, input_frame):
+    if res is not None:
+        output_frame = input_frame.copy()
+        for num, prob in enumerate(res):
+            cv2.putText(output_frame, f"{actions[num]} : {int(prob * 100)}% ", (10, 85 + num * 40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2,
+                        cv2.LINE_AA)
+        return output_frame
+
+    else:
+        output_frame = input_frame.copy()
+        for num in range(len(actions)):
+            prob = 0
+            cv2.putText(output_frame, f"{actions[num]} : {int(prob * 100)}% ", (10, 85 + num * 40),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2,
+                        cv2.LINE_AA)
+        return output_frame
 
 # ---------------------------
 # Load Model and Configurations
